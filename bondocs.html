@@ -27,7 +27,7 @@ input{font:inherit;width:100%;padding:12px;border-radius:12px;border:1px solid v
 .note{color:var(--mute);font-size:.85rem;text-align:center;margin:6px 0}
 .hide{display:none}
 #hud{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
-canvas{display:block;width:100%;max-width:360px;margin:0 auto;border-radius:16px;border:3px solid var(--gold);background:var(--field);touch-action:none}
+canvas{display:block;width:100%;max-width:360px;margin:0 auto;border-radius:16px;border:3px solid var(--gold);background:#fff url(img/bg.png) center bottom/cover no-repeat;touch-action:none}
 .next{font-size:1.6rem}
 .tv main{max-width:1000px}.tv .row{font-size:1.9rem;padding:14px 8px}.tv h1{font-size:3rem}.tv .chips button{font-size:1.3rem}
 .big{text-align:center;font-size:3rem;color:var(--acc);margin:4px 0}
@@ -56,17 +56,14 @@ canvas{display:block;width:100%;max-width:360px;margin:0 auto;border-radius:16px
 </main>
 <script>
 /* ✏️ EDIT ME — the merge chain, smallest to biggest.
-   r = size, color = fallback circle color, emoji = placeholder art.
-   To use your own art, set img to a PNG/SVG data URL (send me your files and I'll embed them). */
+   r = size, color = fallback circle color, emoji = fallback if the image is missing.
+   img = path to your art in the img/ folder (transparent PNG). Add or remove lines to change the chain length. */
 const CHAIN=[
- {name:"Confetti",  r:15,color:"#f7c6d9",emoji:"🎊",img:""},
- {name:"Flower",    r:21,color:"#f9d5a7",emoji:"🌸",img:""},
- {name:"Heart",     r:28,color:"#f28f9b",emoji:"💗",img:""},
- {name:"Ring",      r:36,color:"#f5e08a",emoji:"💍",img:""},
- {name:"Cupcake",   r:45,color:"#d9b8f0",emoji:"🧁",img:""},
- {name:"Champagne", r:55,color:"#f0e6a8",emoji:"🥂",img:""},
- {name:"Cake",      r:66,color:"#ffd1dc",emoji:"🎂",img:""},
- {name:"The Couple",r:80,color:"#ffe08a",emoji:"👰‍♀️🤵",img:""}
+ {name:"Butterfly", r:20,color:"#9fe3f5",emoji:"🦋",img:"img/butterfly.png"},
+ {name:"Sushi",     r:29,color:"#ffd2b8",emoji:"🍣",img:"img/sushi.png"},
+ {name:"Puppy",     r:41,color:"#f0d9b5",emoji:"🐶",img:"img/puppy.png"},
+ {name:"Goats",     r:55,color:"#e6e6ee",emoji:"🐐",img:"img/goats.png"},
+ {name:"The Couple",r:78,color:"#ffe08a",emoji:"💑",img:"img/couple.png"}
 ];
 const GAMES=[{id:"merge",name:"Wedding Merge",emoji:"🎂"},{id:"hunt",name:"Scavenger Hunt",emoji:"📸",soon:1},{id:"story",name:"Our Story",emoji:"🏃",soon:1}];
 CHAIN.forEach(c=>{if(c.img){c.im=new Image();c.im.src=c.img}});
@@ -105,11 +102,11 @@ window.setDb=d=>{db=d};
 /* ---------- Wedding Merge ---------- */
 const W=360,H=520,LINE=90,G=0.32,cv=$("#cv"),cx=cv.getContext("2d");
 let balls,score,nextL,aimX,cool,raf,run=false,over,fx,last,acc;
-const rnd=()=>Math.floor(Math.random()*4);
+const rnd=()=>Math.floor(Math.random()*Math.min(3,CHAIN.length-1));
 function begin(){balls=[];fx=[];score=0;nextL=rnd();aimX=W/2;cool=0;over=false;run=true;acc=0;last=performance.now();
   $("#over").classList.add("hide");hud();cancelAnimationFrame(raf);raf=requestAnimationFrame(loop)}
 function stop(){run=false;cancelAnimationFrame(raf)}
-function hud(){$("#sc").textContent=score;$("#nx").textContent=CHAIN[nextL].emoji}
+function hud(){$("#sc").textContent=score;const c=CHAIN[nextL];$("#nx").innerHTML=c.img?`<img src="${c.img}" alt="" style="height:1.7rem;vertical-align:middle">`:c.emoji}
 function pos(e){const r=cv.getBoundingClientRect();const R=CHAIN[nextL].r;aimX=Math.max(R+4,Math.min(W-R-4,(e.clientX-r.left)*W/r.width))}
 cv.addEventListener("pointerdown",e=>{pos(e)});cv.addEventListener("pointermove",pos);
 cv.addEventListener("pointerup",e=>{pos(e);drop()});
@@ -137,7 +134,7 @@ function step(){
 function burst(x,y,n){for(let i=0;i<n;i++){const a=Math.random()*6.28,s=1+Math.random()*2.5;fx.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-1,t:30+Math.random()*20})}}
 function loop(t){if(!run)return;acc+=Math.min(50,t-last);last=t;while(acc>=16.67&&!over){step();acc-=16.67}draw();if(!over)raf=requestAnimationFrame(loop)}
 function sprite(b,extra){const c=CHAIN[b.l],r=c.r*(1+extra);
-  if(c.im&&c.im.complete&&c.im.naturalWidth){cx.drawImage(c.im,b.x-r,b.y-r,r*2,r*2);return}
+  if(c.im&&c.im.complete&&c.im.naturalWidth){const k=2*r*1.12/Math.max(c.im.naturalWidth,c.im.naturalHeight),w=c.im.naturalWidth*k,h=c.im.naturalHeight*k;cx.drawImage(c.im,b.x-w/2,b.y-h/2,w,h);return}
   cx.beginPath();cx.arc(b.x,b.y,r,0,7);cx.fillStyle=c.color;cx.fill();cx.lineWidth=2;cx.strokeStyle="rgba(0,0,0,.15)";cx.stroke();
   cx.font=Math.round(r*(c.emoji.length>2?1:1.15))+"px serif";cx.textAlign="center";cx.textBaseline="middle";cx.fillText(c.emoji,b.x,b.y+r*.06)}
 function draw(){
@@ -159,12 +156,12 @@ async function finish(){
 /* 🔧 PASTE YOUR FIREBASE CONFIG HERE (Firebase console → Project settings → Your apps → Web app → SDK config).
    These keys are safe to be public; your Firestore security rules are what protect the data. */
 const FIREBASE_CONFIG={
-  apiKey:"PASTE_ME",
-  authDomain:"PASTE_ME",
-  projectId:"PASTE_ME",
-  storageBucket:"PASTE_ME",
-  messagingSenderId:"PASTE_ME",
-  appId:"PASTE_ME"
+  apiKey: "AIzaSyDIQbfGsm43SOj8G5WLpGzeLg0gnhsuR0w",
+  authDomain: "the-bondocs.firebaseapp.com",
+  projectId: "the-bondocs",
+  storageBucket: "the-bondocs.firebasestorage.app",
+  messagingSenderId: "1072054336636",
+  appId: "1:1072054336636:web:d8a4f8b20a0f3b1930ddf9"
 };
 import {initializeApp} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {getFirestore,collection,doc,getDoc,setDoc,query,orderBy,limit,onSnapshot} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
