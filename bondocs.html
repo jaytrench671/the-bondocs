@@ -121,7 +121,7 @@ const rnd=()=>DROPS[Math.floor(Math.random()*DROPS.length)];
 function begin(){balls=[];fx=[];score=0;nextK=rnd();aimX=W/2;cool=0;over=false;run=true;acc=0;last=performance.now();
   $("#over").classList.add("hide");hud();cancelAnimationFrame(raf);raf=requestAnimationFrame(loop)}
 function stop(){run=false;cancelAnimationFrame(raf)}
-function hud(){$("#sc").textContent=score;const c=P[nextK];$("#nx").innerHTML=c.img?`<img src="${c.img}" alt="" style="height:1.7rem;vertical-align:middle">`:c.emoji}
+function hud(){$("#sc").textContent=score;const c=P[nextK];$("#nx").innerHTML=c.img?`<img src="${c.img}" alt="" style="height:1.7rem;vertical-align:middle">`:c.emoji;if(c.ring)$("#nx").innerHTML+=`<span style="display:inline-block;width:.6rem;height:.6rem;border-radius:50%;background:${c.ring};margin-left:4px"></span>`}
 function pos(e){const r=cv.getBoundingClientRect();const R=P[nextK].r;aimX=Math.max(R+4,Math.min(W-R-4,(e.clientX-r.left)*W/r.width))}
 cv.addEventListener("pointerdown",e=>{pos(e)});cv.addEventListener("pointermove",pos);
 cv.addEventListener("pointerup",e=>{pos(e);drop()});
@@ -161,7 +161,7 @@ function sprite(b,extra){const c=P[b.k],r=c.r*(1+extra);
   if(c.im&&c.im.complete&&c.im.naturalWidth){const k=2*r*1.12/Math.max(c.im.naturalWidth,c.im.naturalHeight),w=c.im.naturalWidth*k,h=c.im.naturalHeight*k;cx.drawImage(c.im,b.x-w/2,b.y-h/2,w,h)}
   else{cx.beginPath();cx.arc(b.x,b.y,r,0,7);cx.fillStyle=c.fill;cx.fill();
     cx.font=Math.round(r*(c.emoji.length>2?1:1.15))+"px serif";cx.textAlign="center";cx.textBaseline="middle";cx.fillText(c.emoji,b.x,b.y+r*.06)}
-  if(c.ring){cx.beginPath();cx.arc(b.x,b.y,r,0,7);cx.lineWidth=4;cx.strokeStyle=c.ring;cx.stroke()}}
+  if(c.ring){const d=Math.max(4.5,c.r*.15),ox=b.x+r*.62,oy=b.y-r*.62;cx.beginPath();cx.arc(ox,oy,d,0,7);cx.fillStyle=c.ring;cx.fill();cx.lineWidth=2;cx.strokeStyle="#fff";cx.stroke()}}
 function draw(){
   cx.clearRect(0,0,W,H);
   cx.setLineDash([8,6]);cx.strokeStyle="rgba(192,96,90,.5)";cx.lineWidth=2;cx.beginPath();cx.moveTo(0,LINE);cx.lineTo(W,LINE);cx.stroke();cx.setLineDash([]);
