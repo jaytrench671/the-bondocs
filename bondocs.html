@@ -39,7 +39,7 @@ canvas{display:block;width:100%;max-width:360px;margin:0 auto;border-radius:16px
 
 <section id="games">
   <div class="card"><div class="note" style="text-align:left">Your name (shows on the scoreboard)</div><input id="nm" maxlength="20" placeholder="Your name"></div>
-  <button class="g" data-g="merge"><span>🎂</span><div><b>Wedding Merge</b><small>Drop &amp; merge to build the couple</small></div></button>
+  <button class="g" data-g="merge"><span>🎂</span><div><b>Wedding Merge</b><small>Merge two chains into one couple</small></div></button>
   <button class="g" disabled><span>📸</span><div><b>Photo Scavenger Hunt</b><small>Coming soon</small></div></button>
   <button class="g" disabled><span>🏃</span><div><b>Our Story</b><small>Coming soon</small></div></button>
 </section>
@@ -47,7 +47,7 @@ canvas{display:block;width:100%;max-width:360px;margin:0 auto;border-radius:16px
 <section id="merge" class="hide">
   <div id="hud"><button id="back">← Back</button><div>Score <b id="sc">0</b></div><div>Next <span class="next" id="nx"></span></div></div>
   <canvas id="cv" width="360" height="520"></canvas>
-  <p class="note">Tap or drag to aim, release to drop. Match two of the same to merge!</p>
+  <p class="note">Tap or drag to aim, release to drop. 💚 Match two of the same to merge. Get a 🤵 and a 👰 together to make the couple 💜</p>
   <div class="card hide" id="over" style="text-align:center;margin-top:10px"><div>Game over, <span id="on"></span>!</div><div class="big" id="os">0</div><div class="note" id="om"></div>
     <button class="p" id="again" style="width:100%">Play again</button><button id="seeb" style="width:100%;margin-top:8px">Scoreboard</button></div>
 </section>
@@ -55,19 +55,32 @@ canvas{display:block;width:100%;max-width:360px;margin:0 auto;border-radius:16px
 <section id="board" class="hide"><div class="chips" id="chips"></div><div class="card" id="list"></div><p class="note" id="live"></p></section>
 </main>
 <script>
-/* ✏️ EDIT ME — the merge chain, smallest to biggest.
-   r = size, color = fallback circle color, emoji = fallback if the image is missing.
-   img = path to your art in the img/ folder (transparent PNG). Add or remove lines to change the chain length. */
-const CHAIN=[
- {name:"Butterfly", r:20,color:"#9fe3f5",emoji:"🦋",img:"img/butterfly.png"},
- {name:"Sushi",     r:29,color:"#ffd2b8",emoji:"🍣",img:"img/sushi.png"},
- {name:"Puppy",     r:41,color:"#f0d9b5",emoji:"🐶",img:"img/puppy.png"},
- {name:"Goats",     r:55,color:"#e6e6ee",emoji:"🐐",img:"img/goats.png"},
- {name:"Chopper",     r:65,color:"#e6e6e6",emoji:"🐐",img:"img/chopper.png"},
- {name:"The Couple",r:78,color:"#ffe08a",emoji:"💑",img:"img/couple.png"}
+/* ✏️ EDIT ME — two chains, each listed smallest → biggest. The LAST item in each chain is the FACE.
+   r = size, emoji = placeholder art, img = path to your art in img/ (transparent PNG; leave "" to use the emoji),
+   pts = points earned when two pieces merge INTO this one.
+   Same pieces from the SAME chain merge up. His face + her face = the couple! */
+const HIS=[   // 💚 his chain (green)
+ {name:"Strawberry",   r:20,emoji:"🌱",img:"img/strawberry.png",pts:0},
+ {name:"Bee",     r:30,emoji:"🌿",img:"img/bee.png",pts:15},
+ {name:"Chopper",   r:42,emoji:"🍀",img:"img/chopper.png",pts:35},
+ {name:"His Face", r:58,emoji:"🤵",img:"img/jon.png",pts:70}
 ];
+const HERS=[  // 💜 her chain (purple)
+ {name:"Apple",   r:20,emoji:"🍇",img:"img/apple.png",pts:0},
+ {name:"Butterfly",  r:30,emoji:"🦄",img:"img/butterfly.png",pts:15},
+ {name:"Kuromi",  r:42,emoji:"🔮",img:"img/kuromi.png",pts:35},
+ {name:"Her Face", r:58,emoji:"👰",img:"img/joleene.png",pts:70}
+];
+const COUPLE={name:"The Couple",r:78,emoji:"💑",img:"img/couple.png",color:"#ffe08a",pts:200};
+const FACE_BONUS=100;   // two faces of the SAME chain touching: they vanish for this many points
+const COUPLE_BONUS=500; // two couples touching
+const RING={h:"#3fa768",w:"#9b5fd0"},FILL={h:"#dff3e5",w:"#eadcf7"}; // green / purple
+const P={};
+function build(list,ch){list.forEach((p,i)=>{P[ch+i]={...p,k:ch+i,ch,next:i<list.length-1?ch+(i+1):null,ring:RING[ch],fill:FILL[ch]}})}
+build(HIS,"h");build(HERS,"w");P.C={...COUPLE,k:"C",ch:"c",next:null,fill:COUPLE.color};
+const FACE={h:"h"+(HIS.length-1),w:"w"+(HERS.length-1)};
+Object.values(P).forEach(c=>{if(c.img){c.im=new Image();c.im.src=c.img}});
 const GAMES=[{id:"merge",name:"Wedding Merge",emoji:"🎂"},{id:"hunt",name:"Scavenger Hunt",emoji:"📸",soon:1},{id:"story",name:"Our Story",emoji:"🏃",soon:1}];
-CHAIN.forEach(c=>{if(c.img){c.im=new Image();c.im.src=c.img}});
 
 const $=s=>document.querySelector(s),esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 let db=null,me="",name="",curGame="merge";
@@ -102,49 +115,61 @@ window.setDb=d=>{db=d};
 
 /* ---------- Wedding Merge ---------- */
 const W=360,H=520,LINE=90,G=0.32,cv=$("#cv"),cx=cv.getContext("2d");
-let balls,score,nextL,aimX,cool,raf,run=false,over,fx,last,acc;
-const rnd=()=>Math.floor(Math.random()*Math.min(3,CHAIN.length-1));
-function begin(){balls=[];fx=[];score=0;nextL=rnd();aimX=W/2;cool=0;over=false;run=true;acc=0;last=performance.now();
+let balls,score,nextK,aimX,cool,raf,run=false,over,fx,last,acc;
+const DROPS=["h0","h1","w0","w1"].filter(k=>P[k]);
+const rnd=()=>DROPS[Math.floor(Math.random()*DROPS.length)];
+function begin(){balls=[];fx=[];score=0;nextK=rnd();aimX=W/2;cool=0;over=false;run=true;acc=0;last=performance.now();
   $("#over").classList.add("hide");hud();cancelAnimationFrame(raf);raf=requestAnimationFrame(loop)}
 function stop(){run=false;cancelAnimationFrame(raf)}
-function hud(){$("#sc").textContent=score;const c=CHAIN[nextL];$("#nx").innerHTML=c.img?`<img src="${c.img}" alt="" style="height:1.7rem;vertical-align:middle">`:c.emoji}
-function pos(e){const r=cv.getBoundingClientRect();const R=CHAIN[nextL].r;aimX=Math.max(R+4,Math.min(W-R-4,(e.clientX-r.left)*W/r.width))}
+function hud(){$("#sc").textContent=score;const c=P[nextK];$("#nx").innerHTML=c.img?`<img src="${c.img}" alt="" style="height:1.7rem;vertical-align:middle">`:c.emoji}
+function pos(e){const r=cv.getBoundingClientRect();const R=P[nextK].r;aimX=Math.max(R+4,Math.min(W-R-4,(e.clientX-r.left)*W/r.width))}
 cv.addEventListener("pointerdown",e=>{pos(e)});cv.addEventListener("pointermove",pos);
 cv.addEventListener("pointerup",e=>{pos(e);drop()});
-function drop(){if(over||cool>0)return;balls.push({x:aimX,y:CHAIN[nextL].r+6,vx:0,vy:0,l:nextL,age:0,pop:0,warn:0});nextL=rnd();cool=28;hud()}
+function drop(){if(over||cool>0)return;balls.push({x:aimX,y:P[nextK].r+6,vx:0,vy:0,k:nextK,age:0,pop:0,warn:0});nextK=rnd();cool=28;hud()}
+/* What happens when two pieces touch? returns {res:key|null, pts, n} or null */
+function mergeOf(a,b){
+  if(a.k===b.k){const c=P[a.k];
+    if(c.next)return{res:c.next,pts:P[c.next].pts,n:8};
+    if(a.k==="C")return{res:null,pts:COUPLE_BONUS,n:26};
+    return{res:null,pts:FACE_BONUS,n:14}}
+  if((a.k===FACE.h&&b.k===FACE.w)||(a.k===FACE.w&&b.k===FACE.h))return{res:"C",pts:COUPLE.pts,n:22};
+  return null}
 function step(){
   if(cool>0)cool--;
-  for(const b of balls){b.vy+=G;b.x+=b.vx;b.y+=b.vy;b.vx*=.99;b.vy*=.99;b.age++;if(b.pop>0)b.pop-=.06;const r=CHAIN[b.l].r;
+  for(const b of balls){b.vy+=G;b.x+=b.vx;b.y+=b.vy;b.vx*=.99;b.vy*=.99;b.age++;if(b.pop>0)b.pop-=.06;const r=P[b.k].r;
     if(b.x<r){b.x=r;b.vx*=-.3}if(b.x>W-r){b.x=W-r;b.vx*=-.3}if(b.y>H-r){b.y=H-r;b.vy*=-.25;b.vx*=.97}}
   const gone=new Set(),add=[];
   for(let k=0;k<3;k++)for(let i=0;i<balls.length;i++)for(let j=i+1;j<balls.length;j++){
     const a=balls[i],b=balls[j];if(gone.has(a)||gone.has(b))continue;
-    const ra=CHAIN[a.l].r,rb=CHAIN[b.l].r,dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy)||.01,ov=ra+rb-d;
+    const ra=P[a.k].r,rb=P[b.k].r,dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy)||.01,ov=ra+rb-d;
     if(ov<=0)continue;
-    if(a.l===b.l&&k===0){gone.add(a);gone.add(b);const nl=a.l+1,x=(a.x+b.x)/2,y=(a.y+b.y)/2;
-      if(nl>=CHAIN.length){score+=500;burst(x,y,18)}else{score+=nl*10+ (nl*(nl+1)/2)*5;add.push({x,y,vx:0,vy:0,l:nl,age:0,pop:1,warn:0});burst(x,y,8)}
-      hud();continue}
+    const m=k===0?mergeOf(a,b):null;
+    if(m){gone.add(a);gone.add(b);const x=(a.x+b.x)/2,y=(a.y+b.y)/2;score+=m.pts;
+      if(m.res)add.push({x,y,vx:0,vy:0,k:m.res,age:0,pop:1,warn:0});
+      burst(x,y,m.n,m.res==="C"?"💖":m.res?"✨":"🎉");hud();continue}
     const nx=dx/d,ny=dy/d,ma=ra*ra,mb=rb*rb,t=ma+mb;
     a.x-=nx*ov*mb/t;a.y-=ny*ov*mb/t;b.x+=nx*ov*ma/t;b.y+=ny*ov*ma/t;
     const rv=(b.vx-a.vx)*nx+(b.vy-a.vy)*ny;
     if(rv<0){const j2=-1.15*rv/(1/ma+1/mb);a.vx-=j2*nx/ma;a.vy-=j2*ny/ma;b.vx+=j2*nx/mb;b.vy+=j2*ny/mb}}
   if(gone.size)balls=balls.filter(b=>!gone.has(b)).concat(add);
-  for(const b of balls){if(b.age>60&&b.y-CHAIN[b.l].r<LINE){if(++b.warn>150){finish();return}}else b.warn=0}
+  for(const b of balls){if(b.age>60&&b.y-P[b.k].r<LINE){if(++b.warn>150){finish();return}}else b.warn=0}
   fx=fx.filter(p=>(p.t-=1)>0);for(const p of fx){p.x+=p.vx;p.y+=p.vy;p.vy+=.08}
 }
-function burst(x,y,n){for(let i=0;i<n;i++){const a=Math.random()*6.28,s=1+Math.random()*2.5;fx.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-1,t:30+Math.random()*20})}}
+function burst(x,y,n,e){for(let i=0;i<n;i++){const a=Math.random()*6.28,s=1+Math.random()*2.5;fx.push({x,y,e,vx:Math.cos(a)*s,vy:Math.sin(a)*s-1,t:30+Math.random()*20})}}
 function loop(t){if(!run)return;acc+=Math.min(50,t-last);last=t;while(acc>=16.67&&!over){step();acc-=16.67}draw();if(!over)raf=requestAnimationFrame(loop)}
-function sprite(b,extra){const c=CHAIN[b.l],r=c.r*(1+extra);
-  if(c.im&&c.im.complete&&c.im.naturalWidth){const k=2*r*1.12/Math.max(c.im.naturalWidth,c.im.naturalHeight),w=c.im.naturalWidth*k,h=c.im.naturalHeight*k;cx.drawImage(c.im,b.x-w/2,b.y-h/2,w,h);return}
-  cx.beginPath();cx.arc(b.x,b.y,r,0,7);cx.fillStyle=c.color;cx.fill();cx.lineWidth=2;cx.strokeStyle="rgba(0,0,0,.15)";cx.stroke();
-  cx.font=Math.round(r*(c.emoji.length>2?1:1.15))+"px serif";cx.textAlign="center";cx.textBaseline="middle";cx.fillText(c.emoji,b.x,b.y+r*.06)}
+function sprite(b,extra){const c=P[b.k],r=c.r*(1+extra);
+  if(c.im&&c.im.complete&&c.im.naturalWidth){const k=2*r*1.12/Math.max(c.im.naturalWidth,c.im.naturalHeight),w=c.im.naturalWidth*k,h=c.im.naturalHeight*k;cx.drawImage(c.im,b.x-w/2,b.y-h/2,w,h)}
+  else{cx.beginPath();cx.arc(b.x,b.y,r,0,7);cx.fillStyle=c.fill;cx.fill();
+    cx.font=Math.round(r*(c.emoji.length>2?1:1.15))+"px serif";cx.textAlign="center";cx.textBaseline="middle";cx.fillText(c.emoji,b.x,b.y+r*.06)}
+  if(c.ring){cx.beginPath();cx.arc(b.x,b.y,r,0,7);cx.lineWidth=4;cx.strokeStyle=c.ring;cx.stroke()}}
 function draw(){
   cx.clearRect(0,0,W,H);
-  cx.setLineDash([8,6]);cx.strokeStyle="rgba(192,96,90,.5)";cx.beginPath();cx.moveTo(0,LINE);cx.lineTo(W,LINE);cx.stroke();cx.setLineDash([]);
-  if(!over){const c=CHAIN[nextL];cx.globalAlpha=.35;cx.beginPath();cx.moveTo(aimX,c.r*2+8);cx.lineTo(aimX,H);cx.stroke();cx.globalAlpha=.85;
-    if(cool<=0)sprite({x:aimX,y:c.r+6,l:nextL},0);cx.globalAlpha=1}
+  cx.setLineDash([8,6]);cx.strokeStyle="rgba(192,96,90,.5)";cx.lineWidth=2;cx.beginPath();cx.moveTo(0,LINE);cx.lineTo(W,LINE);cx.stroke();cx.setLineDash([]);
+  if(!over){const c=P[nextK];cx.globalAlpha=.35;cx.beginPath();cx.moveTo(aimX,c.r*2+8);cx.lineTo(aimX,H);cx.stroke();cx.globalAlpha=.85;
+    if(cool<=0)sprite({x:aimX,y:c.r+6,k:nextK},0);cx.globalAlpha=1}
   for(const b of balls){const sq=b.pop>0?Math.sin(b.pop*3.14)*.25:0;sprite(b,sq)}
-  for(const p of fx){cx.globalAlpha=Math.min(1,p.t/20);cx.font="14px serif";cx.fillText("💖",p.x,p.y)}cx.globalAlpha=1}
+  cx.font="14px serif";cx.textAlign="center";cx.textBaseline="middle";
+  for(const p of fx){cx.globalAlpha=Math.min(1,p.t/20);cx.fillText(p.e,p.x,p.y)}cx.globalAlpha=1}
 async function finish(){
   over=true;run=false;cancelAnimationFrame(raf);$("#on").textContent=name;$("#os").textContent=score;$("#over").classList.remove("hide");$("#om").textContent="";
   if(!db){$("#om").textContent="Scoreboard unavailable";return}
