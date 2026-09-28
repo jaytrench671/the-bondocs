@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Jon & Jo's Wedding Games</title>
+<style>
+:root{--bg:#fbf6ef;--card:#fff;--ink:#3a2e2a;--mute:#8a7a72;--acc:#c0605a;--gold:#c9a24a;--line:#eadfd2;--field:#fff3e6;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#231b1a;--card:#2f2523;--ink:#f3e9e2;--mute:#b3a29a;--line:#463835;--field:#3a2d2a}}
+:root[data-theme="dark"]{--bg:#231b1a;--card:#2f2523;--ink:#f3e9e2;--mute:#b3a29a;--line:#463835;--field:#3a2d2a}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:Georgia,'Times New Roman',serif}
+main{max-width:520px;margin:0 auto;padding:18px 14px 40px}
+h1{font-size:1.7rem;text-align:center;margin:6px 0;color:var(--acc)}
+.sub{text-align:center;color:var(--mute);font-style:italic;margin:0 0 14px}
+button{font:inherit;padding:11px 14px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
+button.p{background:var(--acc);color:#fff;border:0;font-weight:bold}
+button.on{border-color:var(--acc);color:var(--acc);font-weight:bold}
+button:disabled{opacity:.5}
+.tabs,.chips{display:flex;gap:8px;margin-bottom:12px}.tabs button{flex:1}.chips{flex-wrap:wrap}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:12px}
+input{font:inherit;width:100%;padding:12px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--ink);margin:8px 0}
+.g{display:flex;align-items:center;gap:12px;width:100%;text-align:left;margin-bottom:10px;padding:14px}
+.g b{font-size:1.1rem}.g small{display:block;color:var(--mute)}.g span{font-size:2rem}
+.row{display:flex;align-items:center;gap:12px;padding:10px 4px;border-bottom:1px solid var(--line)}
+.row:last-child{border:0}.rk{width:34px;text-align:center;font-size:1.2rem}.nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.sc{font-weight:bold;color:var(--acc)}
+.row.me{background:rgba(201,162,74,.18);border-radius:10px}
+.note{color:var(--mute);font-size:.85rem;text-align:center;margin:6px 0}
+.hide{display:none}
+#hud{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+canvas{display:block;width:100%;max-width:360px;margin:0 auto;border-radius:16px;border:3px solid var(--gold);background:#fff url(img/bg.png) center bottom/cover no-repeat;touch-action:none}
+.next{font-size:1.6rem}
+.tv main{max-width:1000px}.tv .row{font-size:1.9rem;padding:14px 8px}.tv h1{font-size:3rem}.tv .chips button{font-size:1.3rem}
+.big{text-align:center;font-size:3rem;color:var(--acc);margin:4px 0}
+</style></head>
+<body><main>
+<h1>💍 Jon & Jo</h1>
+<p class="sub">Wedding Games</p>
+<div class="tabs" id="tabs"><button id="tGames" class="on">Games</button><button id="tBoard">Scoreboards</button><button id="tTv">📺</button></div>
+
+<section id="games">
+  <div class="card"><div class="note" style="text-align:left">Your name (shows on the scoreboard)</div><input id="nm" maxlength="20" placeholder="Your name"></div>
+  <button class="g" data-g="merge"><span>🎂</span><div><b>Wedding Merge</b><small>Drop &amp; merge to build the couple</small></div></button>
+  <button class="g" disabled><span>📸</span><div><b>Photo Scavenger Hunt</b><small>Coming soon</small></div></button>
+  <button class="g" disabled><span>🏃</span><div><b>Our Story</b><small>Coming soon</small></div></button>
+</section>
+
+<section id="merge" class="hide">
+  <div id="hud"><button id="back">← Back</button><div>Score <b id="sc">0</b></div><div>Next <span class="next" id="nx"></span></div></div>
+  <canvas id="cv" width="360" height="520"></canvas>
+  <p class="note">Tap or drag to aim, release to drop. Match two of the same to merge!</p>
+  <div class="card hide" id="over" style="text-align:center;margin-top:10px"><div>Game over, <span id="on"></span>!</div><div class="big" id="os">0</div><div class="note" id="om"></div>
+    <button class="p" id="again" style="width:100%">Play again</button><button id="seeb" style="width:100%;margin-top:8px">Scoreboard</button></div>
+</section>
+
+<section id="board" class="hide"><div class="chips" id="chips"></div><div class="card" id="list"></div><p class="note" id="live"></p></section>
+</main>
+<script>
+/* ✏️ EDIT ME — the merge chain, smallest to biggest.
+   r = size, color = fallback circle color, emoji = fallback if the image is missing.
+   img = path to your art in the img/ folder (transparent PNG). Add or remove lines to change the chain length. */
+const CHAIN=[
+ {name:"Butterfly", r:20,color:"#9fe3f5",emoji:"🦋",img:"img/butterfly.png"},
+ {name:"Sushi",     r:29,color:"#ffd2b8",emoji:"🍣",img:"img/sushi.png"},
+ {name:"Puppy",     r:41,color:"#f0d9b5",emoji:"🐶",img:"img/puppy.png"},
+ {name:"Goats",     r:55,color:"#e6e6ee",emoji:"🐐",img:"img/goats.png"},
+ {name:"The Couple",r:78,color:"#ffe08a",emoji:"💑",img:"img/couple.png"}
+];
+const GAMES=[{id:"merge",name:"Wedding Merge",emoji:"🎂"},{id:"hunt",name:"Scavenger Hunt",emoji:"📸",soon:1},{id:"story",name:"Our Story",emoji:"🏃",soon:1}];
+CHAIN.forEach(c=>{if(c.img){c.im=new Image();c.im.src=c.img}});
+
+const $=s=>document.querySelector(s),esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+let db=null,me="",name="",curGame="merge";
+try{me=localStorage.getItem("wg_id")||"";name=localStorage.getItem("wg_name")||""}catch(e){}
+if(!me){me="g"+Math.random().toString(36).slice(2,10);try{localStorage.setItem("wg_id",me)}catch(e){}}
+$("#nm").value=name;
+
+function show(id){["games","merge","board"].forEach(s=>$("#"+s).classList.toggle("hide",s!==id));
+  $("#tGames").classList.toggle("on",id!=="board");$("#tBoard").classList.toggle("on",id==="board");if(id!=="merge")stop()}
+$("#tGames").onclick=()=>show("games");$("#tBoard").onclick=()=>{show("board");sub()};
+$("#tTv").onclick=()=>{document.body.classList.toggle("tv");$("#tabs").classList.toggle("hide");show("board");sub()};
+document.addEventListener("keydown",e=>{if(e.key==="Escape"){document.body.classList.remove("tv");$("#tabs").classList.remove("hide")}});
+document.querySelector('[data-g="merge"]').onclick=()=>{const n=$("#nm").value.trim();if(!n){$("#nm").focus();return}
+  name=n;try{localStorage.setItem("wg_name",n)}catch(e){}show("merge");begin()};
+$("#back").onclick=()=>show("games");$("#again").onclick=begin;$("#seeb").onclick=()=>{curGame="merge";show("board");sub()};
+
+/* ---------- Scoreboards ---------- */
+let unsub=null;
+function sub(){
+  $("#chips").innerHTML=GAMES.map(g=>`<button class="${g.id===curGame?'on':''}" data-id="${g.id}">${g.emoji} ${g.name}</button>`).join("");
+  document.querySelectorAll("#chips button").forEach(b=>b.onclick=()=>{curGame=b.dataset.id;sub()});
+  if(unsub){unsub();unsub=null}
+  const g=GAMES.find(x=>x.id===curGame);
+  if(g.soon){$("#list").innerHTML="<p class='note'>Coming soon!</p>";return}
+  if(!db){$("#list").innerHTML="<p class='note'>Scoreboard offline</p>";return}
+  unsub=db.collection("scores/"+curGame+"/entries").orderBy("score","desc").limit(50).onSnapshot(s=>{
+    const med=["🥇","🥈","🥉"],rows=s.docs.map(d=>({id:d.id,...d.data()}));
+    $("#list").innerHTML=rows.length?rows.map((r,i)=>`<div class="row ${r.id===me?'me':''}"><div class="rk">${med[i]||i+1}</div><div class="nm">${esc(r.name)}</div><div class="sc">${r.score}</div></div>`).join(""):"<p class='note'>No scores yet. Be the first!</p>";
+    $("#live").textContent="🔴 Live";},()=>{$("#live").textContent="Scoreboard unavailable"});
+}
+window.setDb=d=>{db=d};
+
+/* ---------- Wedding Merge ---------- */
+const W=360,H=520,LINE=90,G=0.32,cv=$("#cv"),cx=cv.getContext("2d");
+let balls,score,nextL,aimX,cool,raf,run=false,over,fx,last,acc;
+const rnd=()=>Math.floor(Math.random()*Math.min(3,CHAIN.length-1));
+function begin(){balls=[];fx=[];score=0;nextL=rnd();aimX=W/2;cool=0;over=false;run=true;acc=0;last=performance.now();
+  $("#over").classList.add("hide");hud();cancelAnimationFrame(raf);raf=requestAnimationFrame(loop)}
+function stop(){run=false;cancelAnimationFrame(raf)}
+function hud(){$("#sc").textContent=score;const c=CHAIN[nextL];$("#nx").innerHTML=c.img?`<img src="${c.img}" alt="" style="height:1.7rem;vertical-align:middle">`:c.emoji}
+function pos(e){const r=cv.getBoundingClientRect();const R=CHAIN[nextL].r;aimX=Math.max(R+4,Math.min(W-R-4,(e.clientX-r.left)*W/r.width))}
+cv.addEventListener("pointerdown",e=>{pos(e)});cv.addEventListener("pointermove",pos);
+cv.addEventListener("pointerup",e=>{pos(e);drop()});
+function drop(){if(over||cool>0)return;balls.push({x:aimX,y:CHAIN[nextL].r+6,vx:0,vy:0,l:nextL,age:0,pop:0,warn:0});nextL=rnd();cool=28;hud()}
+function step(){
+  if(cool>0)cool--;
+  for(const b of balls){b.vy+=G;b.x+=b.vx;b.y+=b.vy;b.vx*=.99;b.vy*=.99;b.age++;if(b.pop>0)b.pop-=.06;const r=CHAIN[b.l].r;
+    if(b.x<r){b.x=r;b.vx*=-.3}if(b.x>W-r){b.x=W-r;b.vx*=-.3}if(b.y>H-r){b.y=H-r;b.vy*=-.25;b.vx*=.97}}
+  const gone=new Set(),add=[];
+  for(let k=0;k<3;k++)for(let i=0;i<balls.length;i++)for(let j=i+1;j<balls.length;j++){
+    const a=balls[i],b=balls[j];if(gone.has(a)||gone.has(b))continue;
+    const ra=CHAIN[a.l].r,rb=CHAIN[b.l].r,dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy)||.01,ov=ra+rb-d;
+    if(ov<=0)continue;
+    if(a.l===b.l&&k===0){gone.add(a);gone.add(b);const nl=a.l+1,x=(a.x+b.x)/2,y=(a.y+b.y)/2;
+      if(nl>=CHAIN.length){score+=500;burst(x,y,18)}else{score+=nl*10+ (nl*(nl+1)/2)*5;add.push({x,y,vx:0,vy:0,l:nl,age:0,pop:1,warn:0});burst(x,y,8)}
+      hud();continue}
+    const nx=dx/d,ny=dy/d,ma=ra*ra,mb=rb*rb,t=ma+mb;
+    a.x-=nx*ov*mb/t;a.y-=ny*ov*mb/t;b.x+=nx*ov*ma/t;b.y+=ny*ov*ma/t;
+    const rv=(b.vx-a.vx)*nx+(b.vy-a.vy)*ny;
+    if(rv<0){const j2=-1.15*rv/(1/ma+1/mb);a.vx-=j2*nx/ma;a.vy-=j2*ny/ma;b.vx+=j2*nx/mb;b.vy+=j2*ny/mb}}
+  if(gone.size)balls=balls.filter(b=>!gone.has(b)).concat(add);
+  for(const b of balls){if(b.age>60&&b.y-CHAIN[b.l].r<LINE){if(++b.warn>150){finish();return}}else b.warn=0}
+  fx=fx.filter(p=>(p.t-=1)>0);for(const p of fx){p.x+=p.vx;p.y+=p.vy;p.vy+=.08}
+}
+function burst(x,y,n){for(let i=0;i<n;i++){const a=Math.random()*6.28,s=1+Math.random()*2.5;fx.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-1,t:30+Math.random()*20})}}
+function loop(t){if(!run)return;acc+=Math.min(50,t-last);last=t;while(acc>=16.67&&!over){step();acc-=16.67}draw();if(!over)raf=requestAnimationFrame(loop)}
+function sprite(b,extra){const c=CHAIN[b.l],r=c.r*(1+extra);
+  if(c.im&&c.im.complete&&c.im.naturalWidth){const k=2*r*1.12/Math.max(c.im.naturalWidth,c.im.naturalHeight),w=c.im.naturalWidth*k,h=c.im.naturalHeight*k;cx.drawImage(c.im,b.x-w/2,b.y-h/2,w,h);return}
+  cx.beginPath();cx.arc(b.x,b.y,r,0,7);cx.fillStyle=c.color;cx.fill();cx.lineWidth=2;cx.strokeStyle="rgba(0,0,0,.15)";cx.stroke();
+  cx.font=Math.round(r*(c.emoji.length>2?1:1.15))+"px serif";cx.textAlign="center";cx.textBaseline="middle";cx.fillText(c.emoji,b.x,b.y+r*.06)}
+function draw(){
+  cx.clearRect(0,0,W,H);
+  cx.setLineDash([8,6]);cx.strokeStyle="rgba(192,96,90,.5)";cx.beginPath();cx.moveTo(0,LINE);cx.lineTo(W,LINE);cx.stroke();cx.setLineDash([]);
+  if(!over){const c=CHAIN[nextL];cx.globalAlpha=.35;cx.beginPath();cx.moveTo(aimX,c.r*2+8);cx.lineTo(aimX,H);cx.stroke();cx.globalAlpha=.85;
+    if(cool<=0)sprite({x:aimX,y:c.r+6,l:nextL},0);cx.globalAlpha=1}
+  for(const b of balls){const sq=b.pop>0?Math.sin(b.pop*3.14)*.25:0;sprite(b,sq)}
+  for(const p of fx){cx.globalAlpha=Math.min(1,p.t/20);cx.font="14px serif";cx.fillText("💖",p.x,p.y)}cx.globalAlpha=1}
+async function finish(){
+  over=true;run=false;cancelAnimationFrame(raf);$("#on").textContent=name;$("#os").textContent=score;$("#over").classList.remove("hide");$("#om").textContent="";
+  if(!db){$("#om").textContent="Scoreboard unavailable";return}
+  try{const ref=db.doc("scores/merge/entries/"+me);let best=0;try{const s=await ref.get();if(s.exists)best=(s.data()||{}).score||0}catch(e){}
+    if(score>best){await ref.set({name,score,at:Date.now()});$("#om").textContent=best?"New personal best! 🎉":"Score posted! 🎉"}
+    else $("#om").textContent="Your best is "+best+" — try to beat it!"}
+  catch(e){$("#om").textContent="Couldn't post your score. Ask the hosts for help."}
+}
+</script><script type="module">
+/* 🔧 PASTE YOUR FIREBASE CONFIG HERE (Firebase console → Project settings → Your apps → Web app → SDK config).
+   These keys are safe to be public; your Firestore security rules are what protect the data. */
+const FIREBASE_CONFIG={
+  apiKey: "AIzaSyB8WERu9RNvg8LYOfpPz97V2DrGVEMhYMA",
+  authDomain: "gym-tracker-81536.firebaseapp.com",
+  projectId: "gym-tracker-81536",
+  storageBucket: "gym-tracker-81536.firebasestorage.app",
+  messagingSenderId: "463133877591",
+  appId: "1:463133877591:web:5fe8e1bb37a9aba0e10a12"
+};
+import {initializeApp} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {getFirestore,collection,doc,getDoc,setDoc,query,orderBy,limit,onSnapshot} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+try{
+  const fs=getFirestore(initializeApp(FIREBASE_CONFIG));
+  window.setDb({
+    collection:p=>({orderBy:(f,d)=>({limit:n=>({onSnapshot:(ok,err)=>onSnapshot(query(collection(fs,p),orderBy(f,d),limit(n)),ok,err)})})}),
+    doc:p=>({get:async()=>{const x=await getDoc(doc(fs,p));return{exists:x.exists(),data:()=>x.data()}},set:x=>setDoc(doc(fs,p),x)})
+  });
+}catch(e){console.error("Firebase init failed",e)}
+</script>
+</body></html>
